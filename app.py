@@ -172,7 +172,8 @@ if uploaded_file is not None:
 
         # Возраст
         if col_birth:
-            df_clean['Parsed_Birth'] = pd.to_datetime(df_clean[col_birth], errors='coerce', dayfirst=True)
+            # Пандас сам разберёт смешанные форматы (29-08-1985, 01.01.1971 и т.д.)
+            df_clean['Parsed_Birth'] = pd.to_datetime(df_clean[col_birth], errors='coerce')
             current_year = datetime.now().year
             df_clean['Возраст'] = current_year - df_clean['Parsed_Birth'].dt.year
             df_clean['Возраст'] = df_clean['Возраст'].fillna(0).astype(int)
@@ -387,6 +388,7 @@ if uploaded_file is not None:
             )
 
         st.plotly_chart(p4, use_container_width=True)
+        
         # =========================================================================
         # 13. ГРАФИК 5: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ВОЗРАСТА
         # =========================================================================
@@ -394,14 +396,17 @@ if uploaded_file is not None:
         df_loyalty_age = df_patients_report.groupby(['Сегмент лояльности', 'Возрастная группа']).agg({'ID Пациента': 'count'}).reset_index()
         df_loyalty_age.rename(columns={'ID Пациента': 'Пациенты'}, inplace=True)
 
-        age_order = ['0-17 (Дети/Подростки)', '18-35 (Молодежь)', '36-60 (Взрослые)', '61+ (Пожилые)', 'Не указан']
+        age_order = ['0-17 (Дети/Подростки)', '18-35 (Молодежь)', '36-60 (Взрослые)', '61+ (Пожилые)']
+        # Гарантированно убираем "Не указан", если вдруг остался
+        df_loyalty_age = df_loyalty_age[df_loyalty_age['Возрастная группа'].isin(age_order)]
         df_loyalty_age['Возрастная группа'] = pd.Categorical(df_loyalty_age['Возрастная группа'], categories=age_order, ordered=True)
         df_loyalty_age['Сегмент лояльности'] = pd.Categorical(df_loyalty_age['Сегмент лояльности'], categories=loyalty_order, ordered=True)
         df_loyalty_age = df_loyalty_age.sort_values(['Сегмент лояльности', 'Возрастная группа'])
 
         p5 = px.bar(
-            df_loyalty_age, x='Пациенты', y='Сегмент лояльности', color='Возрастная группа', barmode='group', orientation='h',
-            color_discrete_sequence=['#fa98d1', '#7cebd6', '#0c574f', '#700343', '#fa98d1']
+            df_loyalty_age, x='Пациенты', y='Сегмент лояльности', color='Возрастная группа', 
+            barmode='stack', orientation='h',
+            color_discrete_sequence=['#F4A261', '#E9C46A', '#9E6B75', '#005F73']
         )
         p5.update_layout(
             xaxis_title="Количество человек", yaxis_title="", template="plotly_white", height=450,
@@ -409,7 +414,7 @@ if uploaded_file is not None:
         )
         p5.update_traces(hovertemplate="<b>Сегмент: %{y}</b><br>Группа: %{fullData.name}<br>Количество: %{x} чел.<extra></extra>")
         st.plotly_chart(p5, use_container_width=True)
-
+        
         # =========================================================================
         # 14. ГРАФИК 6: ТОП-10 ГОРОДОВ (БАР)
         # =========================================================================
