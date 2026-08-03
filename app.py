@@ -207,7 +207,6 @@ if uploaded_file is not None:
         df_patients_report.columns = ['ID Пациента', 'Пол', 'Возраст', 'Город', 'Количество услуг', 'LTV сумма']
 
         def get_age_cohort(age):
-            if age <= 0: return 'Не указан'
             if age <= 17: return '0-17 (Дети/Подростки)'
             elif age <= 35: return '18-35 (Молодежь)'
             elif age <= 60: return '36-60 (Взрослые)'
