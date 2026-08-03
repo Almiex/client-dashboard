@@ -314,7 +314,7 @@ if uploaded_file is not None:
         df_loyalty = df_patients_report.groupby('Сегмент лояльности').agg({'ID Пациента': 'count', 'LTV сумма': 'sum'}).reset_index()
         p3 = px.bar(
             df_loyalty, x='LTV сумма', y='Сегмент лояльности', orientation='h',
-            color='Сегмент лояльности', color_discrete_sequence=['#F4A261', '#9E6B75', '#005F73']
+            color='Сегмент лояльности', color_discrete_sequence=['#08E8DE', '#9E6B75', '#005F73']
         )
         p3.update_layout(xaxis_title="Суммарная выручка сегмента (₽)", yaxis_title="", showlegend=False, template="plotly_white", height=350)
         p3.update_traces(texttemplate="%{x:,.0f} ₽", textposition="outside", hovertemplate="<b>%{y}</b><br>Сумма оплат: %{x:,.0f} ₽<extra></extra>")
