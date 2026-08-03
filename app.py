@@ -74,12 +74,16 @@ uploaded_file = st.file_uploader("Выберите Excel файл (.xlsx)", type
 if uploaded_file is not None:
     try:
         # =========================================================================
-        # 1. ЧТЕНИЕ ФАЙЛА И ПОИСК ЗАГОЛОВКОВ
+        # 1. ЧТЕНИЕ ФАЙЛА БЕЗ ЗАГОЛОВКОВ (чтобы найти метаданные и заголовки динамически)
         # =========================================================================
         df_all = pd.read_excel(uploaded_file, sheet_name=0, header=None)
 
+        # =========================================================================
+        # 2. ДИНАМИЧЕСКИЙ ПОИСК СТРОКИ С ЗАГОЛОВКАМИ
+        # =========================================================================
         header_row_index = None
         for idx, row in df_all.iterrows():
+            # Приводим ВСЕ ячейки к строке, NaN станет "nan"
             row_str = row.astype(str).str.lower().values
             has_id = any('пациент' in s or 'айди' in s or 'id' in s for s in row_str)
             has_services_or_money = any('усл' in s or 'кол' in s or 'оплат' in s or 'сумм' in s for s in row_str)
@@ -92,14 +96,14 @@ if uploaded_file is not None:
             st.stop()
 
         # =========================================================================
-        # 2. ИЗВЛЕЧЕНИЕ МЕТАДАННЫХ
+        # 3. ИЗВЛЕЧЕНИЕ МЕТАДАННЫХ (Клиника и даты)
         # =========================================================================
         clinic_name_str = "КЛИНИКА"
         for col in df_all.columns:
             cells_to_check = [str(col)] + df_all[col].astype(str).tolist()
             for cell in cells_to_check:
                 if 'клиника:' in cell.lower():
-                    match = re.search(r'клиника:\s*\d*[\s,]*([^;\n]+)', cell, flags=re.IGNORECASE)
+                    match = re.search(r'клиника:\s*\d*[\s,]*"?([^"\n;]+)"?', cell, flags=re.IGNORECASE)
                     if match:
                         clinic_name_str = match.group(1).strip().replace('"', '').replace('«', '').replace('»', '').strip()
                         break
@@ -115,20 +119,25 @@ if uploaded_file is not None:
         date_curr_str = all_dates[1] if len(all_dates) > 1 else date_past_str
 
         # =========================================================================
-        # 3. МАППИНГ КОЛОНОК И ОЧИСТКА
+        # 4. ОЧИСТКА КОЛОНОК И МАППИНГ
         # =========================================================================
-        raw_cols = df_all.iloc[header_row_index].astype(str).str.replace(r'~000', '', regex=True).str.strip().tolist()
+        raw_cols = df_all.iloc[header_row_index].astype(str).str.replace(r'~000', '', regex=True).str.replace(r'~non-000', '', regex=True).str.replace(r'~001', '', regex=True).str.replace(r'~00\d*', '', regex=True).str.strip().tolist()
         df_clean = df_all.iloc[header_row_index + 1:].copy()
         df_clean.columns = raw_cols
+        df_clean = df_clean.reset_index(drop=True)
+
+        # Удаляем полностью пустые строки
+        df_clean = df_clean.dropna(how='all')
 
         col_id = col_gender = col_birth = col_count = col_money = col_city = None
+
         for col_name in raw_cols:
             c_low = col_name.lower()
             if 'пациент' in c_low or 'айди' in c_low or 'id' in c_low:
                 col_id = col_name
             elif 'пол' in c_low:
                 col_gender = col_name
-            elif 'рожд' in c_low or 'возраст' in c_low:
+            elif 'рожд' in c_low or 'возраст' in c_low or 'дата' in c_low:
                 col_birth = col_name
             elif 'усл' in c_low or 'кол' in c_low:
                 col_count = col_name
@@ -139,19 +148,23 @@ if uploaded_file is not None:
 
         if not all([col_id, col_count, col_money]):
             st.error(f"❌ Ошибка маппинга колонок. Найдено: ID={col_id}, Услуги={col_count}, Деньги={col_money}")
+            st.info(f"Доступные колонки после очистки: {raw_cols}")
             st.stop()
 
         # =========================================================================
-        # 4. ОБРАБОТКА ДАННЫХ
+        # 5. ОБРАБОТКА ДАННЫХ
         # =========================================================================
         df_clean[col_count] = pd.to_numeric(df_clean[col_count], errors='coerce').fillna(0).astype(int)
         df_clean[col_money] = pd.to_numeric(df_clean[col_money], errors='coerce').fillna(0)
 
         # Возраст
-        df_clean['Parsed_Birth'] = pd.to_datetime(df_clean[col_birth], errors='coerce', dayfirst=True)
-        current_year = datetime.now().year
-        df_clean['Возраст'] = current_year - df_clean['Parsed_Birth'].dt.year
-        df_clean['Возраст'] = df_clean['Возраст'].fillna(0).astype(int)
+        if col_birth:
+            df_clean['Parsed_Birth'] = pd.to_datetime(df_clean[col_birth], errors='coerce', dayfirst=True)
+            current_year = datetime.now().year
+            df_clean['Возраст'] = current_year - df_clean['Parsed_Birth'].dt.year
+            df_clean['Возраст'] = df_clean['Возраст'].fillna(0).astype(int)
+        else:
+            df_clean['Возраст'] = 0
 
         # Пол
         if col_gender:
@@ -169,7 +182,7 @@ if uploaded_file is not None:
             col_city = 'Город'
 
         # =========================================================================
-        # 5. АГРЕГАЦИЯ ПО ПАЦИЕНТАМ
+        # 6. АГРЕГАЦИЯ ПО ПАЦИЕНТАМ
         # =========================================================================
         df_patients_report = df_clean.groupby(col_id).agg({
             col_gender: 'first',
@@ -197,7 +210,7 @@ if uploaded_file is not None:
         df_patients_report['Сегмент лояльности'] = df_patients_report['Количество услуг'].apply(get_loyalty_segment)
 
         # =========================================================================
-        # 6. РАСЧЁТ KPI
+        # 7. РАСЧЁТ KPI
         # =========================================================================
         total_unique = len(df_patients_report)
         total_revenue = df_patients_report['LTV сумма'].sum()
@@ -213,7 +226,7 @@ if uploaded_file is not None:
         men_pct = (gender_counts.get('муж', 0) / total_unique * 100) if total_unique > 0 else 0
 
         # =========================================================================
-        # 7. ШАПКА И KPI-КАРТОЧКИ
+        # 8. ШАПКА И KPI-КАРТОЧКИ
         # =========================================================================
         st.markdown(f"""
             <div class="clinic-header-audience">
@@ -257,7 +270,7 @@ if uploaded_file is not None:
         """, unsafe_allow_html=True)
 
         # =========================================================================
-        # 8. ГРАФИК 1: ГЕНДЕРНАЯ СТРУКТУРА
+        # 9. ГРАФИК 1: ГЕНДЕРНАЯ СТРУКТУРА
         # =========================================================================
         st.subheader("1. Распределение пациентов по Полу")
         df_gender = df_patients_report.groupby('Пол').agg({'ID Пациента': 'count', 'LTV сумма': 'sum'}).reset_index()
@@ -270,7 +283,7 @@ if uploaded_file is not None:
         st.plotly_chart(p1, use_container_width=True)
 
         # =========================================================================
-        # 9. ГРАФИК 2: ДЕМОГРАФИЯ ПО ВОЗРАСТУ
+        # 10. ГРАФИК 2: ДЕМОГРАФИЯ ПО ВОЗРАСТУ
         # =========================================================================
         st.subheader("2. Плотность распределения аудитории по Возрасту")
         df_age_filtered = df_patients_report[df_patients_report['Возраст'] > 0]
@@ -283,7 +296,7 @@ if uploaded_file is not None:
         st.plotly_chart(p2, use_container_width=True)
 
         # =========================================================================
-        # 10. ГРАФИК 3: СТРУКТУРА ЛОЯЛЬНОСТИ (ВЫРУЧКА)
+        # 11. ГРАФИК 3: СТРУКТУРА ЛОЯЛЬНОСТИ (ВЫРУЧКА)
         # =========================================================================
         st.subheader("3. Категории лояльности клиентов: Вклад сегментов в общую выручку")
         df_loyalty = df_patients_report.groupby('Сегмент лояльности').agg({'ID Пациента': 'count', 'LTV сумма': 'sum'}).reset_index()
@@ -296,7 +309,7 @@ if uploaded_file is not None:
         st.plotly_chart(p3, use_container_width=True)
 
         # =========================================================================
-        # 11. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА
+        # 12. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА
         # =========================================================================
         st.subheader("4. Распределение категорий лояльности по Полу")
         df_loyalty_gender = df_patients_report.groupby(['Сегмент лояльности', 'Пол']).agg({'ID Пациента': 'count'}).reset_index()
@@ -318,7 +331,7 @@ if uploaded_file is not None:
         st.plotly_chart(p4, use_container_width=True)
 
         # =========================================================================
-        # 12. ГРАФИК 5: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ВОЗРАСТА
+        # 13. ГРАФИК 5: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ВОЗРАСТА
         # =========================================================================
         st.subheader("5. Распределение категорий лояльности по Возрастным группам")
         df_loyalty_age = df_patients_report.groupby(['Сегмент лояльности', 'Возрастная группа']).agg({'ID Пациента': 'count'}).reset_index()
@@ -341,7 +354,7 @@ if uploaded_file is not None:
         st.plotly_chart(p5, use_container_width=True)
 
         # =========================================================================
-        # 13. ГРАФИК 6: ТОП-10 ГОРОДОВ (БАР)
+        # 14. ГРАФИК 6: ТОП-10 ГОРОДОВ (БАР)
         # =========================================================================
         st.subheader("6. Топ-10 городов по количеству пациентов")
         df_city = df_patients_report.copy()
@@ -368,7 +381,7 @@ if uploaded_file is not None:
         st.caption("*учитывались только пациенты с указанным городом")
 
         # =========================================================================
-        # 14. ГРАФИК 7: СТРУКТУРА ПО ГОРОДАМ (ПИРОГ)
+        # 15. ГРАФИК 7: СТРУКТУРА ПО ГОРОДАМ (ПИРОГ)
         # =========================================================================
         st.subheader("7. Структура аудитории по городам (Топ-10)")
         df_no_data = df_city_agg[df_city_agg['Город'] == 'нет данных'].copy()
