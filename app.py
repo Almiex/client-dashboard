@@ -320,8 +320,30 @@ if uploaded_file is not None:
         p3.update_traces(texttemplate="%{x:,.0f} ₽", textposition="outside", hovertemplate="<b>%{y}</b><br>Сумма оплат: %{x:,.0f} ₽<extra></extra>")
         st.plotly_chart(p3, use_container_width=True)
 
+        # # =========================================================================
+        # # 12. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА
+        # # =========================================================================
+        # st.subheader("4. Распределение категорий лояльности по Полу")
+        # df_loyalty_gender = df_patients_report.groupby(['Сегмент лояльности', 'Пол']).agg({'ID Пациента': 'count'}).reset_index()
+        # df_loyalty_gender.rename(columns={'ID Пациента': 'Пациенты'}, inplace=True)
+
+        # loyalty_order = ['Разовые визиты (1 услуга)', 'Постоянные (2-5 услуг)', 'Супер-Лояльные (6+ услуг)']
+        # df_loyalty_gender['Сегмент лояльности'] = pd.Categorical(df_loyalty_gender['Сегмент лояльности'], categories=loyalty_order, ordered=True)
+        # df_loyalty_gender = df_loyalty_gender.sort_values('Сегмент лояльности')
+
+        # p4 = px.bar(
+        #     df_loyalty_gender, x='Пациенты', y='Сегмент лояльности', color='Пол', barmode='group', orientation='h',
+        #     color_discrete_map={'жен': '#9E6B75', 'муж': '#005F73', 'Не указан': '#E0E0E0'}
+        # )
+        # p4.update_layout(
+        #     xaxis_title="Количество человек", yaxis_title="", template="plotly_white", height=400,
+        #     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        # )
+        # p4.update_traces(hovertemplate="<b>Сегмент: %{y}</b><br>Пол: %{fullData.name}<br>Количество: %{x} чел.<extra></extra>")
+        # st.plotly_chart(p4, use_container_width=True)
+
         # =========================================================================
-        # 12. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА
+        # 12. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА (STACKED)
         # =========================================================================
         st.subheader("4. Распределение категорий лояльности по Полу")
         df_loyalty_gender = df_patients_report.groupby(['Сегмент лояльности', 'Пол']).agg({'ID Пациента': 'count'}).reset_index()
@@ -332,14 +354,20 @@ if uploaded_file is not None:
         df_loyalty_gender = df_loyalty_gender.sort_values('Сегмент лояльности')
 
         p4 = px.bar(
-            df_loyalty_gender, x='Пациенты', y='Сегмент лояльности', color='Пол', barmode='group', orientation='h',
+            df_loyalty_gender, x='Пациенты', y='Сегмент лояльности', color='Пол', 
+            barmode='stack', orientation='h',  # ← stack вместо group
             color_discrete_map={'жен': '#9E6B75', 'муж': '#005F73', 'Не указан': '#E0E0E0'}
         )
         p4.update_layout(
-            xaxis_title="Количество человек", yaxis_title="", template="plotly_white", height=400,
+            xaxis_title="Количество человек", 
+            yaxis_title="", 
+            template="plotly_white", 
+            height=400,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        p4.update_traces(hovertemplate="<b>Сегмент: %{y}</b><br>Пол: %{fullData.name}<br>Количество: %{x} чел.<extra></extra>")
+        p4.update_traces(
+            hovertemplate="<b>Сегмент: %{y}</b><br>Пол: %{fullData.name}<br>Количество: %{x} чел.<extra></extra>"
+        )
         st.plotly_chart(p4, use_container_width=True)
 
         # =========================================================================
