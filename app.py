@@ -343,7 +343,7 @@ if uploaded_file is not None:
         # st.plotly_chart(p4, use_container_width=True)
 
         # =========================================================================
-        # 12. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА (STACKED)
+        # 12. ГРАФИК 4: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ПОЛА (STACKED + ИТОГИ СПРАВА)
         # =========================================================================
         st.subheader("4. Распределение категорий лояльности по Полу")
         df_loyalty_gender = df_patients_report.groupby(['Сегмент лояльности', 'Пол']).agg({'ID Пациента': 'count'}).reset_index()
@@ -355,7 +355,7 @@ if uploaded_file is not None:
 
         p4 = px.bar(
             df_loyalty_gender, x='Пациенты', y='Сегмент лояльности', color='Пол', 
-            barmode='stack', orientation='h',  # ← stack вместо group
+            barmode='stack', orientation='h',
             color_discrete_map={'жен': '#9E6B75', 'муж': '#005F73', 'Не указан': '#E0E0E0'}
         )
         p4.update_layout(
@@ -363,13 +363,30 @@ if uploaded_file is not None:
             yaxis_title="", 
             template="plotly_white", 
             height=400,
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(r=120)  # ← запас справа для подписей
         )
         p4.update_traces(
             hovertemplate="<b>Сегмент: %{y}</b><br>Пол: %{fullData.name}<br>Количество: %{x} чел.<extra></extra>"
         )
-        st.plotly_chart(p4, use_container_width=True)
 
+        # Подписи с общим количеством пациентов в каждой когорте (справа от полосы)
+        total_per_segment = df_loyalty_gender.groupby('Сегмент лояльности', observed=False)['Пациенты'].sum().reset_index()
+        for _, row in total_per_segment.iterrows():
+            p4.add_annotation(
+                x=row['Пациенты'],
+                y=row['Сегмент лояльности'],
+                text=f"<b>{row['Пациенты']:,} чел.</b>",
+                showarrow=False,
+                xanchor='left',
+                yanchor='middle',
+                xshift=12,
+                font=dict(size=13, color='#2B2D42', family='Segoe UI, sans-serif'),
+                bgcolor='rgba(255,255,255,0.8)',
+                borderpad=3
+            )
+
+        st.plotly_chart(p4, use_container_width=True)
         # =========================================================================
         # 13. ГРАФИК 5: ЛОЯЛЬНОСТЬ В РАЗРЕЗЕ ВОЗРАСТА
         # =========================================================================
