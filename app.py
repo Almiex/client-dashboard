@@ -172,8 +172,9 @@ if uploaded_file is not None:
 
         # Возраст
         if col_birth:
-            # Пандас сам разберёт смешанные форматы (29-08-1985, 01.01.1971 и т.д.)
-            df_clean['Parsed_Birth'] = pd.to_datetime(df_clean[col_birth], errors='coerce')
+            # Надёжный парсинг смешанных форматов (29-08-1985, 01.01.1971, 03.08.1991 и т.д.)
+            birth_series = df_clean[col_birth].astype(str).str.strip()
+            df_clean['Parsed_Birth'] = pd.to_datetime(birth_series, dayfirst=True, errors='coerce')
             current_year = datetime.now().year
             df_clean['Возраст'] = current_year - df_clean['Parsed_Birth'].dt.year
             df_clean['Возраст'] = df_clean['Возраст'].fillna(0).astype(int)
@@ -397,15 +398,13 @@ if uploaded_file is not None:
         df_loyalty_age.rename(columns={'ID Пациента': 'Пациенты'}, inplace=True)
 
         age_order = ['0-17 (Дети/Подростки)', '18-35 (Молодежь)', '36-60 (Взрослые)', '61+ (Пожилые)']
-        # Гарантированно убираем "Не указан", если вдруг остался
-        df_loyalty_age = df_loyalty_age[df_loyalty_age['Возрастная группа'].isin(age_order)]
         df_loyalty_age['Возрастная группа'] = pd.Categorical(df_loyalty_age['Возрастная группа'], categories=age_order, ordered=True)
         df_loyalty_age['Сегмент лояльности'] = pd.Categorical(df_loyalty_age['Сегмент лояльности'], categories=loyalty_order, ordered=True)
         df_loyalty_age = df_loyalty_age.sort_values(['Сегмент лояльности', 'Возрастная группа'])
 
         p5 = px.bar(
             df_loyalty_age, x='Пациенты', y='Сегмент лояльности', color='Возрастная группа', 
-            barmode='stack', orientation='h',
+            barmode='group', orientation='h',
             color_discrete_sequence=['#F4A261', '#E9C46A', '#9E6B75', '#005F73']
         )
         p5.update_layout(
