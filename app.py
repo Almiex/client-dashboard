@@ -74,7 +74,7 @@ uploaded_file = st.file_uploader("Выберите Excel файл (.xlsx)", type
 if uploaded_file is not None:
     try:
         # =========================================================================
-        # 1. ЧТЕНИЕ ФАЙЛА БЕЗ ЗАГОЛОВКОВ (чтобы найти метаданные и заголовки динамически)
+        # 1. ЧТЕНИЕ ФАЙЛА БЕЗ ЗАГОЛОВКОВ
         # =========================================================================
         df_all = pd.read_excel(uploaded_file, sheet_name=0, header=None)
 
@@ -83,10 +83,17 @@ if uploaded_file is not None:
         # =========================================================================
         header_row_index = None
         for idx, row in df_all.iterrows():
-            # Приводим ВСЕ ячейки к строке, NaN станет "nan"
-            row_str = row.astype(str).str.lower().values
-            has_id = any('пациент' in s or 'айди' in s or 'id' in s for s in row_str)
-            has_services_or_money = any('усл' in s or 'кол' in s or 'оплат' in s or 'сумм' in s for s in row_str)
+            # ГАРАНТИРОВАННО преобразуем каждую ячейку в строку, NaN → пустая строка
+            cells = []
+            for val in row.values:
+                if pd.notna(val):
+                    cells.append(str(val).lower())
+                else:
+                    cells.append("")
+            
+            has_id = any('пациент' in s or 'айди' in s or 'id' in s for s in cells)
+            has_services_or_money = any('усл' in s or 'кол' in s or 'оплат' in s or 'сумм' in s for s in cells)
+            
             if has_id and has_services_or_money:
                 header_row_index = idx
                 break
@@ -96,11 +103,11 @@ if uploaded_file is not None:
             st.stop()
 
         # =========================================================================
-        # 3. ИЗВЛЕЧЕНИЕ МЕТАДАННЫХ (Клиника и даты)
+        # 3. ИЗВЛЕЧЕНИЕ МЕТАДАННЫХ
         # =========================================================================
         clinic_name_str = "КЛИНИКА"
         for col in df_all.columns:
-            cells_to_check = [str(col)] + df_all[col].astype(str).tolist()
+            cells_to_check = [str(col)] + [str(v) for v in df_all[col].values if pd.notna(v)]
             for cell in cells_to_check:
                 if 'клиника:' in cell.lower():
                     match = re.search(r'клиника:\s*\d*[\s,]*"?([^"\n;]+)"?', cell, flags=re.IGNORECASE)
@@ -112,7 +119,7 @@ if uploaded_file is not None:
 
         all_dates = []
         for col in df_all.columns:
-            text_content = " ".join([str(col)] + df_all[col].astype(str).tolist())
+            text_content = " ".join([str(col)] + [str(v) for v in df_all[col].values if pd.notna(v)])
             all_dates.extend(re.findall(r'\d{2}\.\d{2}\.\d{4}', text_content))
 
         date_past_str = all_dates[0] if len(all_dates) > 0 else ""
@@ -121,12 +128,18 @@ if uploaded_file is not None:
         # =========================================================================
         # 4. ОЧИСТКА КОЛОНОК И МАППИНГ
         # =========================================================================
-        raw_cols = df_all.iloc[header_row_index].astype(str).str.replace(r'~000', '', regex=True).str.replace(r'~non-000', '', regex=True).str.replace(r'~001', '', regex=True).str.replace(r'~00\d*', '', regex=True).str.strip().tolist()
+        raw_cols = []
+        for val in df_all.iloc[header_row_index].values:
+            if pd.notna(val):
+                s = str(val)
+                s = re.sub(r'~00\d*', '', s)  # убираем ~000, ~001, ~non-000 и т.д.
+                raw_cols.append(s.strip())
+            else:
+                raw_cols.append('')
+
         df_clean = df_all.iloc[header_row_index + 1:].copy()
         df_clean.columns = raw_cols
         df_clean = df_clean.reset_index(drop=True)
-
-        # Удаляем полностью пустые строки
         df_clean = df_clean.dropna(how='all')
 
         col_id = col_gender = col_birth = col_count = col_money = col_city = None
@@ -137,7 +150,7 @@ if uploaded_file is not None:
                 col_id = col_name
             elif 'пол' in c_low:
                 col_gender = col_name
-            elif 'рожд' in c_low or 'возраст' in c_low or 'дата' in c_low:
+            elif 'рожд' in c_low or 'возраст' in c_low or 'дата рожд' in c_low:
                 col_birth = col_name
             elif 'усл' in c_low or 'кол' in c_low:
                 col_count = col_name
@@ -193,7 +206,6 @@ if uploaded_file is not None:
         }).reset_index()
         df_patients_report.columns = ['ID Пациента', 'Пол', 'Возраст', 'Город', 'Количество услуг', 'LTV сумма']
 
-        # Сегментация
         def get_age_cohort(age):
             if age <= 0: return 'Не указан'
             if age <= 17: return '0-17 (Дети/Подростки)'
