@@ -170,11 +170,9 @@ if uploaded_file is not None:
         df_clean[col_count] = pd.to_numeric(df_clean[col_count], errors='coerce').fillna(0).astype(int)
         df_clean[col_money] = pd.to_numeric(df_clean[col_money], errors='coerce').fillna(0)
 
-        # Возраст
+        # Возраст — точно как в оригинальном коде
         if col_birth:
-            # Надёжный парсинг смешанных форматов (29-08-1985, 01.01.1971, 03.08.1991 и т.д.)
-            birth_series = df_clean[col_birth].astype(str).str.strip()
-            df_clean['Parsed_Birth'] = pd.to_datetime(birth_series, dayfirst=True, errors='coerce')
+            df_clean['Parsed_Birth'] = pd.to_datetime(df_clean[col_birth], errors='coerce', format='mixed')
             current_year = datetime.now().year
             df_clean['Возраст'] = current_year - df_clean['Parsed_Birth'].dt.year
             df_clean['Возраст'] = df_clean['Возраст'].fillna(0).astype(int)
@@ -316,7 +314,7 @@ if uploaded_file is not None:
         df_loyalty = df_patients_report.groupby('Сегмент лояльности').agg({'ID Пациента': 'count', 'LTV сумма': 'sum'}).reset_index()
         p3 = px.bar(
             df_loyalty, x='LTV сумма', y='Сегмент лояльности', orientation='h',
-            color='Сегмент лояльности', color_discrete_sequence=['#7cebd6', '#9E6B75', '#005F73']
+            color='Сегмент лояльности', color_discrete_sequence=['#F4A261', '#9E6B75', '#005F73']
         )
         p3.update_layout(xaxis_title="Суммарная выручка сегмента (₽)", yaxis_title="", showlegend=False, template="plotly_white", height=350)
         p3.update_traces(texttemplate="%{x:,.0f} ₽", textposition="outside", hovertemplate="<b>%{y}</b><br>Сумма оплат: %{x:,.0f} ₽<extra></extra>")
