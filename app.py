@@ -314,7 +314,7 @@ if uploaded_file is not None:
         df_loyalty = df_patients_report.groupby('Сегмент лояльности').agg({'ID Пациента': 'count', 'LTV сумма': 'sum'}).reset_index()
         p3 = px.bar(
             df_loyalty, x='LTV сумма', y='Сегмент лояльности', orientation='h',
-            color='Сегмент лояльности', color_discrete_sequence=['#08E8DE', '#9E6B75', '#005F73']
+            color='Сегмент лояльности', color_discrete_sequence=['#7cebd6', '#9E6B75', '#005F73']
         )
         p3.update_layout(xaxis_title="Суммарная выручка сегмента (₽)", yaxis_title="", showlegend=False, template="plotly_white", height=350)
         p3.update_traces(texttemplate="%{x:,.0f} ₽", textposition="outside", hovertemplate="<b>%{y}</b><br>Сумма оплат: %{x:,.0f} ₽<extra></extra>")
@@ -401,7 +401,7 @@ if uploaded_file is not None:
 
         p5 = px.bar(
             df_loyalty_age, x='Пациенты', y='Сегмент лояльности', color='Возрастная группа', barmode='group', orientation='h',
-            color_discrete_sequence=['#F4A261', '#E9C46A', '#9E6B75', '#005F73', '#E0E0E0']
+            color_discrete_sequence=['#F4A261', '#E9C46A', '#9E6B75', '#7cebd6', '#fa98d1']
         )
         p5.update_layout(
             xaxis_title="Количество человек", yaxis_title="", template="plotly_white", height=450,
