@@ -401,7 +401,7 @@ if uploaded_file is not None:
 
         p5 = px.bar(
             df_loyalty_age, x='Пациенты', y='Сегмент лояльности', color='Возрастная группа', barmode='group', orientation='h',
-            color_discrete_sequence=['#F4A261', '#E9C46A', '#9E6B75', '#7cebd6', '#fa98d1']
+            color_discrete_sequence=['#fa98d1', '#7cebd6', '#0c574f', '#700343', '#fa98d1']
         )
         p5.update_layout(
             xaxis_title="Количество человек", yaxis_title="", template="plotly_white", height=450,
