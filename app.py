@@ -117,13 +117,24 @@ if uploaded_file is not None:
         #     if clinic_name_str != "КЛИНИКА":
         #         break
 
-                clinic_name_str = "КЛИНИКА"
+        # all_dates = []
+        # for col in df_all.columns:
+        #     text_content = " ".join([str(col)] + [str(v) for v in df_all[col].values if pd.notna(v)])
+        #     all_dates.extend(re.findall(r'\d{2}\.\d{2}\.\d{4}', text_content))
+
+        # date_past_str = all_dates[0] if len(all_dates) > 0 else ""
+        # date_curr_str = all_dates[1] if len(all_dates) > 1 else date_past_str
+
+        # =========================================================================
+        # 3. ИЗВЛЕЧЕНИЕ МЕТАДАННЫХ
+        # =========================================================================
+        clinic_name_str = "КЛИНИКА"
         for col in df_all.columns:
             cells_to_check = [str(col)] + [str(v) for v in df_all[col].values if pd.notna(v)]
             for cell in cells_to_check:
                 if 'клиника:' in cell.lower():
-                    # Как в оригинале: просто отрезаем префикс и оставляем всё название
-                    clean_cell = re.sub(r'^Клиника:\s*\d*[\s,]*', '', cell, flags=re.IGNORECASE)
+                    # Как в оригинале: отрезаем префикс "Клиника: 001, "
+                    clean_cell = re.sub(r'^Клиника:\s*\d*,\s*', '', cell, flags=re.IGNORECASE)
                     clean_cell = clean_cell.replace('Клиника:', '').strip()
                     clinic_name_str = clean_cell.replace('"', '').replace('«', '').replace('»', '').strip()
                     break
